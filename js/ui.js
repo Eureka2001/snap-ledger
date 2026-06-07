@@ -10,6 +10,11 @@ const UI = {
   $(sel) { return document.querySelector(sel); },
   $$(sel) { return document.querySelectorAll(sel); },
 
+  toggleLanguage() {
+    const newLang = currentLang === 'zh' ? 'en' : 'zh';
+    setLang(newLang);
+  },
+
   showView(viewId) {
     this.$$('.view').forEach(v => v.classList.add('hidden'));
     const el = document.getElementById(viewId);
@@ -25,12 +30,12 @@ const UI = {
 
     const heading = document.createElement('div');
     heading.className = 'ledger-list-heading';
-    heading.textContent = '已有账本';
+    heading.textContent = t('lockScreen.existingLedgers');
     list.appendChild(heading);
 
     const tip = document.createElement('div');
     tip.className = 'ledger-list-tip';
-    tip.textContent = '导入已有数据：请先创建新账本并设置密码，进入主界面后使用"导入"功能恢复数据。';
+    tip.textContent = t('lockScreen.importTip');
     list.appendChild(tip);
 
     if (ledgers.length === 0) return;
@@ -38,15 +43,20 @@ const UI = {
     for (const l of ledgers) {
       const row = document.createElement('div');
       row.className = 'ledger-row';
+      const hintLabel = currentLang === 'zh' ? '提示' : 'Hint';
+      const hintNone = currentLang === 'zh' ? '无' : 'None';
+      const passPlaceholder = currentLang === 'zh' ? '密码' : 'Password';
+      const unlockBtn = currentLang === 'zh' ? '解锁' : 'Unlock';
+      const deleteBtn = currentLang === 'zh' ? '删除' : 'Delete';
       row.innerHTML = `
         <div class="ledger-row-info">
           <div class="ledger-row-name">${this._esc(l.name)}</div>
-          <div class="ledger-row-hint">提示: ${this._esc(l.hint || '无')}</div>
+          <div class="ledger-row-hint">${hintLabel}: ${this._esc(l.hint || hintNone)}</div>
         </div>
         <div class="ledger-row-actions">
-          <input type="password" class="ledger-password" placeholder="密码" data-id="${l.id}" />
-          <button class="btn btn-primary btn-sm" onclick="UI.handleUnlock('${l.id}')">解锁</button>
-          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); UI.handleDeleteLedger('${l.id}', '${this._esc(l.name)}')">删除</button>
+          <input type="password" class="ledger-password" placeholder="${passPlaceholder}" data-id="${l.id}" />
+          <button class="btn btn-primary btn-sm" onclick="UI.handleUnlock('${l.id}')">${unlockBtn}</button>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); UI.handleDeleteLedger('${l.id}', '${this._esc(l.name)}')">${deleteBtn}</button>
         </div>
       `;
       list.appendChild(row);
@@ -74,16 +84,16 @@ const UI = {
   async handleUnlock(ledgerId) {
     const input = this.$(`input[data-id="${ledgerId}"]`);
     const password = input ? input.value : '';
-    if (!password) { alert('请输入密码'); return; }
+    if (!password) { alert(currentLang === 'zh' ? '请输入密码' : 'Please enter password'); return; }
     try {
       await Store.unlockLedger(ledgerId, password);
       await this.enterMainView();
       this._showBackupReminderIfNeeded();
     } catch (e) {
       if (e.message === 'Invalid password') {
-        alert('密码错误');
+        alert(currentLang === 'zh' ? '密码错误' : 'Incorrect password');
       } else {
-        alert('解锁失败: ' + e.message);
+        alert(currentLang === 'zh' ? '解锁失败: ' : 'Unlock failed: ' + e.message);
       }
     }
   },
@@ -93,26 +103,37 @@ const UI = {
     const password = this.$('#new-ledger-password').value;
     const confirm = this.$('#new-ledger-password-confirm').value;
     const hint = this.$('#new-ledger-hint').value.trim();
-    if (!name) { alert('请输入账本名称'); return; }
-    if (!password || password.length < 4) { alert('密码至少4位'); return; }
-    if (password !== confirm) { alert('两次密码输入不一致'); return; }
+    if (!name) { alert(currentLang === 'zh' ? '请输入账本名称' : 'Please enter ledger name'); return; }
+    if (!password || password.length < 4) { alert(currentLang === 'zh' ? '密码至少4位' : 'Password must be at least 4 characters'); return; }
+    if (password !== confirm) { alert(currentLang === 'zh' ? '两次密码输入不一致' : 'Passwords do not match'); return; }
     try {
       await Store.createLedger(name, password, hint);
       this.hideCreateModal();
       await this.enterMainView();
       this._showBackupReminderIfNeeded();
     } catch (e) {
-      alert('创建失败: ' + e.message);
+      alert(currentLang === 'zh' ? '创建失败: ' : 'Creation failed: ' + e.message);
     }
   },
 
   async handleDeleteLedger(ledgerId, name) {
-    if (!confirm(`确定要删除账本「${name}」吗？此操作不可恢复！`)) return;
+    const confirm1 = currentLang === 'zh'
+      ? `确定要删除账本「${name}」吗？此操作不可恢复！`
+      : `Are you sure you want to delete ledger "${name}"? This action cannot be undone!`;
+    const confirm2 = currentLang === 'zh'
+      ? '再次确认：删除后数据不可恢复，是否继续？'
+      : 'Confirm again: Data cannot be recovered after deletion, continue?';
+    const confirm3 = currentLang === 'zh'
+      ? '最后确认：真的要删除吗？'
+      : 'Final confirmation: Really delete?';
+    if (!confirm(confirm1)) return;
+    if (!confirm(confirm2)) return;
+    if (!confirm(confirm3)) return;
     try {
       await Store.deleteLedger(ledgerId);
       await this.renderLockScreen();
     } catch (e) {
-      alert('删除失败: ' + e.message);
+      alert(currentLang === 'zh' ? '删除失败: ' : 'Deletion failed: ' + e.message);
     }
   },
 
@@ -145,12 +166,15 @@ const UI = {
     tbody.innerHTML = '';
 
     if (sorted.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="12" class="empty-state">暂无数据，请录入第一条快照</td></tr>';
+      const emptyMsg = currentLang === 'zh' ? '暂无数据，请录入第一条快照' : 'No data yet, please add your first snapshot';
+      tbody.innerHTML = `<tr><td colspan="12" class="empty-state">${emptyMsg}</td></tr>`;
       return;
     }
 
     for (const s of sorted) {
       const tr = document.createElement('tr');
+      const viewBtn = currentLang === 'zh' ? '查看' : 'View';
+      const editBtn = currentLang === 'zh' ? '编辑' : 'Edit';
       tr.innerHTML = `
         <td>${s.record_date}</td>
         <td class="num">${IO.formatMoney(s.income)}</td>
@@ -161,8 +185,8 @@ const UI = {
         <td class="num highlight">${IO.formatMoney(s.net_asset)}</td>
         <td class="num ${s.derived_expense > 0 ? 'negative' : ''}">${IO.formatMoney(s.derived_expense)}</td>
         <td class="actions">
-          <button class="btn btn-sm" onclick="UI.showDetail('${s.id}')">查看</button>
-          <button class="btn btn-sm" onclick="UI.editSnapshot('${s.id}')">编辑</button>
+          <button class="btn btn-sm" onclick="UI.showDetail('${s.id}')">${viewBtn}</button>
+          <button class="btn btn-sm" onclick="UI.editSnapshot('${s.id}')">${editBtn}</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -186,11 +210,14 @@ const UI = {
     const dateVal = this.$('#f-date').value;
     if (!dateVal) { warning.classList.add('hidden'); return; }
     const editingDate = this._editingId
-      ? this._allDates.find((_, i, arr) => arr[i] === dateVal)  // always allow editing own date
+      ? this._allDates.find((_, i, arr) => arr[i] === dateVal)
       : null;
     const exists = this._allDates.includes(dateVal);
     if (exists && !this._editingId) {
-      warning.textContent = `日期 ${dateVal} 已存在记录，无法重复录入。如需修改请使用表格中的"编辑"按钮。`;
+      const msg = currentLang === 'zh'
+        ? `日期 ${dateVal} 已存在记录，无法重复录入。如需修改请使用表格中的"编辑"按钮。`
+        : `Date ${dateVal} already exists. Cannot enter duplicate. Use the "Edit" button in the table to modify.`;
+      warning.textContent = msg;
       warning.classList.remove('hidden');
     } else {
       warning.classList.add('hidden');
@@ -202,7 +229,7 @@ const UI = {
     if (!el) return;
     const cashInput = this.$('#f-cash').value;
     if (!cashInput && cashInput !== '0' && cashInput !== 0) {
-      el.textContent = '请先填写现金池总额';
+      el.textContent = currentLang === 'zh' ? '请先填写现金池总额' : 'Please enter cash pool total first';
       el.classList.remove('negative');
       const warning = this.$('#f-expense-warning');
       if (warning) warning.classList.add('hidden');
@@ -251,7 +278,7 @@ const UI = {
       this.$('#f-invest-value').value = snapshot.investment_market_value || 0;
       this.$('#f-invest-note').value = snapshot.investment_note || '';
       this.$('#f-expense-note').value = snapshot.expense_note || '';
-      this.$('#form-title').textContent = '编辑快照';
+      this.$('#form-title').textContent = currentLang === 'zh' ? '编辑快照' : 'Edit Snapshot';
       this.$('#form-delete-btn').style.display = '';
     } else {
       const today = new Date().toISOString().slice(0, 10);
@@ -275,7 +302,7 @@ const UI = {
         this.$('#f-receivable-note').value = '';
         this.$('#f-invest-inflow-note').value = '';
       }
-      this.$('#form-title').textContent = '新增快照';
+      this.$('#form-title').textContent = currentLang === 'zh' ? '新增快照' : 'Add Snapshot';
       this.$('#form-delete-btn').style.display = 'none';
     }
 
@@ -301,7 +328,7 @@ const UI = {
     let dateVal = this.$('#f-date').value;
     if (!dateVal) dateVal = new Date().toISOString().slice(0, 10);
     const cashVal = this.$('#f-cash').value;
-    if (!cashVal && cashVal !== '0' && cashVal !== 0) { alert('请填写现金池总额'); return; }
+    if (!cashVal && cashVal !== '0' && cashVal !== 0) { alert(currentLang === 'zh' ? '请填写现金池总额' : 'Please enter cash pool total'); return; }
 
     const raw = {
       id: this._editingId || crypto.randomUUID(),
@@ -324,9 +351,12 @@ const UI = {
       await this.refreshData();
     } catch (e) {
       if (e.message && e.message.includes('uniqueness')) {
-        alert(`日期 ${dateVal} 已存在快照记录。\n\n不建议同一天多次录入，您可以在表格中点击该日期快照的"编辑"按钮来修改已有数据。`);
+        const msg = currentLang === 'zh'
+          ? `日期 ${dateVal} 已存在快照记录。\n\n不建议同一天多次录入，您可以在表格中点击该日期快照的"编辑"按钮来修改已有数据。`
+          : `Date ${dateVal} already exists.\n\nMultiple entries on the same day is not recommended. You can click the "Edit" button for that date in the table to modify existing data.`;
+        alert(msg);
       } else {
-        alert('保存失败: ' + e.message);
+        alert(currentLang === 'zh' ? '保存失败: ' : 'Save failed: ' + e.message);
       }
     }
   },
@@ -337,34 +367,43 @@ const UI = {
     const s = sorted.find(x => x.id === id);
     if (!s) return;
     if (sorted.length > 1 && s.record_date !== sorted[sorted.length - 1].record_date) {
-      alert('提示：您正在编辑非最新一期的历史数据，保存后该日期之后的所有快照的衍生数据（开销、收益率等）将重新计算。');
+      const msg = currentLang === 'zh'
+        ? '提示：您正在编辑非最新一期的历史数据，保存后该日期之后的所有快照的衍生数据（开销、收益率等）将重新计算。'
+        : 'Notice: You are editing historical data that is not the latest period. After saving, the derived data (expenses, returns, etc.) of all snapshots after this date will be recalculated.';
+      alert(msg);
     }
     this.showForm(s);
   },
 
   async handleDelete(id) {
-    if (!confirm('确定要删除这条快照吗？')) return;
-    if (!confirm('再次确认：删除后数据不可恢复，是否继续？')) return;
-    if (!confirm('最后确认：真的要删除吗？')) return;
+    const confirm1 = currentLang === 'zh' ? '确定要删除这条快照吗？' : 'Are you sure you want to delete this snapshot?';
+    const confirm2 = currentLang === 'zh' ? '再次确认：删除后数据不可恢复，是否继续？' : 'Confirm again: Data cannot be recovered after deletion, continue?';
+    const confirm3 = currentLang === 'zh' ? '最后确认：真的要删除吗？' : 'Final confirmation: Really delete?';
+    if (!confirm(confirm1)) return;
+    if (!confirm(confirm2)) return;
+    if (!confirm(confirm3)) return;
     try {
       await Store.deleteSnapshot(id);
       await this.refreshData();
     } catch (e) {
-      alert('删除失败: ' + e.message);
+      alert(currentLang === 'zh' ? '删除失败: ' : 'Deletion failed: ' + e.message);
     }
   },
 
   async handleDeleteFromForm() {
     if (!this._editingId) return;
-    if (!confirm('确定要删除这条快照吗？')) return;
-    if (!confirm('再次确认：删除后数据不可恢复，是否继续？')) return;
-    if (!confirm('最后确认：真的要删除吗？')) return;
+    const confirm1 = currentLang === 'zh' ? '确定要删除这条快照吗？' : 'Are you sure you want to delete this snapshot?';
+    const confirm2 = currentLang === 'zh' ? '再次确认：删除后数据不可恢复，是否继续？' : 'Confirm again: Data cannot be recovered after deletion, continue?';
+    const confirm3 = currentLang === 'zh' ? '最后确认：真的要删除吗？' : 'Final confirmation: Really delete?';
+    if (!confirm(confirm1)) return;
+    if (!confirm(confirm2)) return;
+    if (!confirm(confirm3)) return;
     try {
       await Store.deleteSnapshot(this._editingId);
       this.hideForm();
       await this.refreshData();
     } catch (e) {
-      alert('删除失败: ' + e.message);
+      alert(currentLang === 'zh' ? '删除失败: ' : 'Deletion failed: ' + e.message);
     }
   },
 
@@ -381,7 +420,10 @@ const UI = {
   },
 
   async handleExportCSV() {
-    if (!confirm('导出文件为明文，未进行加密。请注意妥善保管导出文件，避免泄露个人财务数据。\n\n确认导出？')) return;
+    const msg = currentLang === 'zh'
+      ? '导出文件为明文，未进行加密。请注意妥善保管导出文件，避免泄露个人财务数据。\n\n确认导出？'
+      : 'Exported files are unencrypted. Please keep exported files safe to avoid leaking personal financial data.\n\nConfirm export?';
+    if (!confirm(msg)) return;
     const snapshots = await Store.getAllSnapshots();
     const csv = IO.exportCSV(snapshots);
     const name = await this._currentLedgerName();
@@ -390,7 +432,10 @@ const UI = {
   },
 
   async handleExportJSON() {
-    if (!confirm('导出文件为明文，未进行加密。请注意妥善保管导出文件，避免泄露个人财务数据。\n\n确认导出？')) return;
+    const msg = currentLang === 'zh'
+      ? '导出文件为明文，未进行加密。请注意妥善保管导出文件，避免泄露个人财务数据。\n\n确认导出？'
+      : 'Exported files are unencrypted. Please keep exported files safe to avoid leaking personal financial data.\n\nConfirm export?';
+    if (!confirm(msg)) return;
     const snapshots = await Store.getAllSnapshots();
     const json = IO.exportJSON(snapshots);
     const name = await this._currentLedgerName();
@@ -411,7 +456,7 @@ const UI = {
     const iso = localStorage.getItem(`snapledger_last_export_${Store.currentLedgerId}`);
     el.classList.remove('export-badge-normal', 'export-badge-warn');
     if (!iso) {
-      el.textContent = '尚未导出备份';
+      el.textContent = currentLang === 'zh' ? '尚未导出备份' : 'No backup exported yet';
       el.classList.add('export-badge-warn');
       return;
     }
@@ -419,10 +464,13 @@ const UI = {
     const formatted = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     const daysSince = Math.floor((Date.now() - d.getTime()) / (86400000));
     if (daysSince > 30) {
-      el.textContent = `上次导出: ${formatted}（已超过30天）`;
+      const msg = currentLang === 'zh'
+        ? `上次导出: ${formatted}（已超过30天）`
+        : `Last export: ${formatted} (over 30 days ago)`;
+      el.textContent = msg;
       el.classList.add('export-badge-warn');
     } else {
-      el.textContent = `上次导出: ${formatted}`;
+      el.textContent = currentLang === 'zh' ? `上次导出: ${formatted}` : `Last export: ${formatted}`;
       el.classList.add('export-badge-normal');
     }
   },
@@ -437,14 +485,20 @@ const UI = {
       try {
         const text = await IO.readFile(file);
         const snapshots = file.name.endsWith('.json') ? IO.parseJSON(text) : IO.parseCSV(text);
-        if (snapshots.length === 0) { alert('没有有效数据'); return; }
+        if (snapshots.length === 0) { alert(currentLang === 'zh' ? '没有有效数据' : 'No valid data'); return; }
 
-        const mode = confirm('点击"确定"覆盖现有数据，点击"取消"合并数据') ? 'overwrite' : 'merge';
+        const modeMsg = currentLang === 'zh'
+          ? '点击"确定"覆盖现有数据，点击"取消"合并数据'
+          : 'Click "OK" to overwrite existing data, click "Cancel" to merge data';
+        const successMsg = currentLang === 'zh' ? `成功导入 ${snapshots.length} 条记录` : `Successfully imported ${snapshots.length} records`;
+        const failMsg = currentLang === 'zh' ? '导入失败: ' : 'Import failed: ';
+
+        const mode = confirm(modeMsg) ? 'overwrite' : 'merge';
         await Store.importSnapshots(snapshots, mode);
         await this.refreshData();
-        alert(`成功导入 ${snapshots.length} 条记录`);
+        alert(successMsg);
       } catch (e) {
-        alert('导入失败: ' + e.message);
+        alert(currentLang === 'zh' ? '导入失败: ' : 'Import failed: ' + e.message);
       }
     };
     input.click();
@@ -503,34 +557,76 @@ const UI = {
     const s = snapshots.find(x => x.id === id);
     if (!s) return;
 
-    this.$('#detail-title').textContent = `${s.record_date} 快照详情`;
+    const labels = currentLang === 'zh' ? {
+      detailTitle: '快照详情',
+      date: '快照日期',
+      income: '收入',
+      incomeTotal: '本期总收入',
+      incomeNote: '收入说明',
+      cashReceivable: '现金与应收',
+      cashTotal: '现金池总额',
+      receivable: '应收账款',
+      receivableNote: '应收账款说明',
+      invest: '投资',
+      investInflow: '投资净转入',
+      inflowNote: '转入说明',
+      investValue: '持仓市值',
+      investNote: '持仓说明',
+      autoCalc: '自动计算',
+      netAssets: '当前总净资产',
+      expense: '倒推实际开销',
+      expenseNote: '开销说明',
+      none: '—'
+    } : {
+      detailTitle: 'Snapshot Details',
+      date: 'Snapshot Date',
+      income: 'Income',
+      incomeTotal: 'Period Income',
+      incomeNote: 'Income Note',
+      cashReceivable: 'Cash & Receivables',
+      cashTotal: 'Cash Pool Total',
+      receivable: 'Receivables',
+      receivableNote: 'Receivables Note',
+      invest: 'Investment',
+      investInflow: 'Net Invest Inflow',
+      inflowNote: 'Inflow Note',
+      investValue: 'Holdings Value',
+      investNote: 'Holdings Note',
+      autoCalc: 'Auto Calculated',
+      netAssets: 'Current Net Assets',
+      expense: 'Actual Expense',
+      expenseNote: 'Expense Note',
+      none: '—'
+    };
+
+    this.$('#detail-title').textContent = `${s.record_date} ${labels.detailTitle}`;
     this.$('#detail-content').innerHTML = `
       <div class="detail-section">
-        <div class="detail-row"><span class="detail-label">快照日期</span><span class="detail-value">${s.record_date}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.date}</span><span class="detail-value">${s.record_date}</span></div>
       </div>
       <div class="detail-section">
-        <h4>收入</h4>
-        <div class="detail-row"><span class="detail-label">本期总收入</span><span class="detail-value">${IO.formatMoney(s.income)}</span></div>
-        <div class="detail-row"><span class="detail-label">收入说明</span><span class="detail-value">${this._esc(s.income_note) || '—'}</span></div>
+        <h4>${labels.income}</h4>
+        <div class="detail-row"><span class="detail-label">${labels.incomeTotal}</span><span class="detail-value">${IO.formatMoney(s.income)}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.incomeNote}</span><span class="detail-value">${this._esc(s.income_note) || labels.none}</span></div>
       </div>
       <div class="detail-section">
-        <h4>现金与应收</h4>
-        <div class="detail-row"><span class="detail-label">现金池总额</span><span class="detail-value">${IO.formatMoney(s.cash_pool)}</span></div>
-        <div class="detail-row"><span class="detail-label">应收账款</span><span class="detail-value">${IO.formatMoney(s.accounts_receivable)}</span></div>
-        <div class="detail-row"><span class="detail-label">应收账款说明</span><span class="detail-value">${this._esc(s.receivable_note) || '—'}</span></div>
+        <h4>${labels.cashReceivable}</h4>
+        <div class="detail-row"><span class="detail-label">${labels.cashTotal}</span><span class="detail-value">${IO.formatMoney(s.cash_pool)}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.receivable}</span><span class="detail-value">${IO.formatMoney(s.accounts_receivable)}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.receivableNote}</span><span class="detail-value">${this._esc(s.receivable_note) || labels.none}</span></div>
       </div>
       <div class="detail-section">
-        <h4>投资</h4>
-        <div class="detail-row"><span class="detail-label">投资净转入</span><span class="detail-value">${IO.formatMoney(s.investment_inflow)}</span></div>
-        <div class="detail-row"><span class="detail-label">转入说明</span><span class="detail-value">${this._esc(s.investment_inflow_note) || '—'}</span></div>
-        <div class="detail-row"><span class="detail-label">持仓市值</span><span class="detail-value">${IO.formatMoney(s.investment_market_value)}</span></div>
-        <div class="detail-row"><span class="detail-label">持仓说明</span><span class="detail-value">${this._esc(s.investment_note) || '—'}</span></div>
+        <h4>${labels.invest}</h4>
+        <div class="detail-row"><span class="detail-label">${labels.investInflow}</span><span class="detail-value">${IO.formatMoney(s.investment_inflow)}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.inflowNote}</span><span class="detail-value">${this._esc(s.investment_inflow_note) || labels.none}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.investValue}</span><span class="detail-value">${IO.formatMoney(s.investment_market_value)}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.investNote}</span><span class="detail-value">${this._esc(s.investment_note) || labels.none}</span></div>
       </div>
       <div class="detail-section">
-        <h4>自动计算</h4>
-        <div class="detail-row"><span class="detail-label">当前总净资产</span><span class="detail-value highlight">${IO.formatMoney(s.net_asset)}</span></div>
-        <div class="detail-row"><span class="detail-label">倒推实际开销</span><span class="detail-value ${s.derived_expense > 0 ? 'negative' : ''}">${IO.formatMoney(s.derived_expense)}</span></div>
-        <div class="detail-row"><span class="detail-label">开销说明</span><span class="detail-value">${this._esc(s.expense_note) || '—'}</span></div>
+        <h4>${labels.autoCalc}</h4>
+        <div class="detail-row"><span class="detail-label">${labels.netAssets}</span><span class="detail-value highlight">${IO.formatMoney(s.net_asset)}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.expense}</span><span class="detail-value ${s.derived_expense > 0 ? 'negative' : ''}">${IO.formatMoney(s.derived_expense)}</span></div>
+        <div class="detail-row"><span class="detail-label">${labels.expenseNote}</span><span class="detail-value">${this._esc(s.expense_note) || labels.none}</span></div>
       </div>
     `;
     this.$('#detail-modal').classList.remove('hidden');

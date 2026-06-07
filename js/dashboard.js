@@ -37,7 +37,7 @@ const Dashboard = {
     const receivable = filtered.map(s => s.accounts_receivable);
 
     chart.setOption({
-      title: { text: '资产走势', left: 'center', textStyle: { fontSize: 14 } },
+      title: { text: t('dashboard.assetTrend'), left: 'center', textStyle: { fontSize: 14 } },
       tooltip: {
         trigger: 'axis',
         formatter(params) {
@@ -48,21 +48,21 @@ const Dashboard = {
           return html;
         }
       },
-      legend: { bottom: 0, data: ['净资产', '现金池', '持仓市值', '应收账款'] },
+      legend: { bottom: 0, data: [t('dashboard.netAssets'), t('dashboard.cashPool'), t('dashboard.investValue'), t('dashboard.receivable')] },
       grid: { left: '12%', right: '5%', top: '15%', bottom: '15%' },
       xAxis: { type: 'category', data: dates, axisLabel: { fontSize: 11 } },
       yAxis: {
         type: 'value',
         axisLabel: {
           fontSize: 11,
-          formatter: v => v >= 10000 ? (v / 10000).toFixed(1) + '万' : v.toFixed(0)
+          formatter: v => v >= 10000 ? (v / 10000).toFixed(1) + t('dashboard.wan') : v.toFixed(0)
         }
       },
       series: [
-        { name: '净资产', type: 'line', data: netAssets, smooth: true, lineStyle: { width: 2.5 } },
-        { name: '现金池', type: 'line', data: cashPool, smooth: true, lineStyle: { width: 1.5, type: 'dashed' } },
-        { name: '持仓市值', type: 'line', data: invest, smooth: true, lineStyle: { width: 1.5, type: 'dashed' } },
-        { name: '应收账款', type: 'line', data: receivable, smooth: true, lineStyle: { width: 1.5, type: 'dashed' } },
+        { name: t('dashboard.netAssets'), type: 'line', data: netAssets, smooth: true, lineStyle: { width: 2.5 } },
+        { name: t('dashboard.cashPool'), type: 'line', data: cashPool, smooth: true, lineStyle: { width: 1.5, type: 'dashed' } },
+        { name: t('dashboard.investValue'), type: 'line', data: invest, smooth: true, lineStyle: { width: 1.5, type: 'dashed' } },
+        { name: t('dashboard.receivable'), type: 'line', data: receivable, smooth: true, lineStyle: { width: 1.5, type: 'dashed' } },
       ]
     }, true);
   },
@@ -77,7 +77,7 @@ const Dashboard = {
     const incomes = filtered.map(s => s.income);
 
     chart.setOption({
-      title: { text: '收入 vs 开销', left: 'center', textStyle: { fontSize: 14 } },
+      title: { text: t('dashboard.pnl'), left: 'center', textStyle: { fontSize: 14 } },
       tooltip: {
         trigger: 'axis',
         formatter(params) {
@@ -88,19 +88,19 @@ const Dashboard = {
           return html;
         }
       },
-      legend: { bottom: 0, data: ['收入', '开销'] },
+      legend: { bottom: 0, data: [t('dashboard.income'), t('dashboard.expense')] },
       grid: { left: '12%', right: '5%', top: '15%', bottom: '15%' },
       xAxis: { type: 'category', data: dates, axisLabel: { fontSize: 11 } },
       yAxis: {
         type: 'value',
         axisLabel: {
           fontSize: 11,
-          formatter: v => v >= 10000 ? (v / 10000).toFixed(1) + '万' : v.toFixed(0)
+          formatter: v => v >= 10000 ? (v / 10000).toFixed(1) + t('dashboard.wan') : v.toFixed(0)
         }
       },
       series: [
-        { name: '收入', type: 'bar', data: incomes, itemStyle: { color: '#67C23A' } },
-        { name: '开销', type: 'bar', data: expenses, itemStyle: { color: '#F56C6C' } },
+        { name: t('dashboard.income'), type: 'bar', data: incomes, itemStyle: { color: '#67C23A' } },
+        { name: t('dashboard.expense'), type: 'bar', data: expenses, itemStyle: { color: '#F56C6C' } },
       ]
     }, true);
   },
@@ -113,7 +113,7 @@ const Dashboard = {
     if (!latest) return;
 
     chart.setOption({
-      title: { text: '资产构成', left: 'center', textStyle: { fontSize: 14 } },
+      title: { text: t('dashboard.composition'), left: 'center', textStyle: { fontSize: 14 } },
       tooltip: {
         formatter: '{b}: ¥{c} ({d}%)'
       },
@@ -122,9 +122,9 @@ const Dashboard = {
         radius: ['40%', '70%'],
         center: ['50%', '55%'],
         data: [
-          { value: latest.cash_pool, name: '现金池', itemStyle: { color: '#409EFF' } },
-          { value: latest.investment_market_value, name: '持仓市值', itemStyle: { color: '#E6A23C' } },
-          { value: latest.accounts_receivable, name: '应收账款', itemStyle: { color: '#67C23A' } },
+          { value: latest.cash_pool, name: t('dashboard.cashPool'), itemStyle: { color: '#409EFF' } },
+          { value: latest.investment_market_value, name: t('dashboard.investValue'), itemStyle: { color: '#E6A23C' } },
+          { value: latest.accounts_receivable, name: t('dashboard.receivable'), itemStyle: { color: '#67C23A' } },
         ].filter(d => d.value > 0),
         label: { fontSize: 12 },
       }]

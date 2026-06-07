@@ -65,12 +65,34 @@ html, body {
 .btn-sm { padding: 3px 10px; font-size: 12px; }
 .btn-block { width: 100%; text-align: center; }
 
+.btn-lang {
+  min-width: 50px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.btn-lang:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
 /* ─── Lock Screen ─── */
 
 .lock-container {
   max-width: 480px;
   margin: 80px auto;
   padding: 40px 32px;
+  position: relative;
+}
+
+.lock-lang-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 4px 12px;
+  font-size: 13px;
 }
 
 .app-logo {

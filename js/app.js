@@ -2,6 +2,7 @@
 
 (async function init() {
   try {
+    initLang();
     UI._initGlobalListeners();
     await Store._open();
     await UI.renderLockScreen();
