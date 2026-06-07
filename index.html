@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnapLedger</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+
+  <!-- Lock Screen -->
+  <div id="view-lock" class="view">
+    <div class="lock-container">
+      <img class="app-logo" src="assets/LOGO.png" alt="SnapLedger" />
+      <h1 class="app-title">SnapLedger</h1>
+      <p class="app-slogan">告别流水，看见变化。</p>
+      <div class="app-features">
+        <div class="feature-tag">资产快照 · 非流水账</div>
+        <div class="feature-tag">本地运行 · 零依赖</div>
+        <div class="feature-tag">加密存储 · 隐私优先</div>
+      </div>
+
+      <div class="lock-action">
+        <button class="btn btn-primary btn-block" onclick="UI.showCreateModal()">+ 新建账本</button>
+      </div>
+
+      <div id="ledger-list" class="ledger-list"></div>
+    </div>
+  </div>
+
+  <!-- Create Ledger Modal -->
+  <div id="create-modal" class="modal hidden" onclick="UI.closeCreateModal(event)">
+    <div class="modal-body">
+      <div class="modal-header">
+        <h3>新建账本</h3>
+        <button class="btn btn-sm" onclick="UI.hideCreateModal()">关闭</button>
+      </div>
+      <div class="form-modal-content">
+        <div class="form-row">
+          <div class="form-group">
+            <label>账本名称 <span class="required">*</span></label>
+            <input type="text" id="new-ledger-name" placeholder="例如：我的账本" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>密码 <span class="required">*</span></label>
+            <input type="password" id="new-ledger-password" placeholder="至少4位" />
+          </div>
+          <div class="form-group">
+            <label>确认密码 <span class="required">*</span></label>
+            <input type="password" id="new-ledger-password-confirm" placeholder="再次输入" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>密码提示</label>
+            <input type="text" id="new-ledger-hint" placeholder="防止忘记密码" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="UI.handleCreateLedger()">创建</button>
+          <button class="btn" onclick="UI.hideCreateModal()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main View -->
+  <div id="view-main" class="view hidden">
+    <!-- Header -->
+    <header class="main-header">
+      <div class="main-header-inner">
+        <div class="header-left">
+          <span class="logo">SnapLedger</span>
+          <span class="header-slogan">告别流水，看见变化。</span>
+          <span id="current-ledger-name" class="ledger-label"></span>
+          <span id="last-export-time" class="export-badge"></span>
+        </div>
+        <div class="header-right">
+          <button class="btn" onclick="UI.handleRefresh()">刷新</button>
+          <button class="btn" onclick="UI.handleImport()">导入</button>
+          <button class="btn" onclick="UI.handleExportCSV()">导出 CSV</button>
+          <button class="btn" onclick="UI.handleExportJSON()">导出 JSON</button>
+          <button class="btn btn-danger" onclick="UI.handleLock()">锁定</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Input Form button -->
+    <section class="input-section">
+      <button class="btn btn-primary" id="toggle-form-btn" onclick="UI.showForm(null)">+ 新增快照</button>
+    </section>
+
+    <!-- Ledger Table -->
+    <section class="table-section">
+      <div class="table-wrapper">
+        <table id="ledger-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>收入</th>
+              <th>现金池</th>
+              <th>投资转入</th>
+              <th>持仓市值</th>
+              <th>应收账款</th>
+              <th>净资产</th>
+              <th>倒推开销</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="ledger-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Dashboard Charts -->
+    <section class="dashboard">
+      <div class="chart-toolbar">
+        <span class="chart-title">数据看板</span>
+        <div class="range-selector">
+          <button class="range-btn" data-range="3m" onclick="UI.setRange('3m')">3个月</button>
+          <button class="range-btn" data-range="6m" onclick="UI.setRange('6m')">6个月</button>
+          <button class="range-btn" data-range="1y" onclick="UI.setRange('1y')">1年</button>
+          <button class="range-btn active" data-range="all" onclick="UI.setRange('all')">全部</button>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div id="chart-asset" class="chart-box"></div>
+        <div id="chart-pnl" class="chart-box"></div>
+      </div>
+      <div class="charts-grid">
+        <div id="chart-composition" class="chart-box chart-box-sm"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Backup Reminder Modal -->
+  <div id="backup-modal" class="modal hidden">
+    <div class="modal-body backup-modal-body">
+      <div class="modal-header">
+        <h3>数据安全提醒</h3>
+        <button class="btn btn-sm" onclick="UI.hideBackupModal()">关闭</button>
+      </div>
+      <div class="backup-reminder-content">
+        <div class="backup-warning-block">
+          <p><strong>您的所有数据仅存储在当前浏览器的 IndexedDB 中。</strong></p>
+          <p>如果您清理浏览器数据、更换浏览器或重装系统，且未提前导出备份，数据将<strong>永久丢失且无法恢复</strong>。</p>
+          <p>强烈建议您定期使用"导出 JSON"或"导出 CSV"功能备份数据。</p>
+        </div>
+        <label class="backup-mute-option">
+          <input type="checkbox" id="backup-mute-checkbox" />
+          <span>一个月内不再提醒</span>
+        </label>
+      </div>
+      <div class="form-actions">
+        <span style="flex:1"></span>
+        <button class="btn btn-primary" onclick="UI.confirmBackupReminder()">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detail-modal" class="modal hidden" onclick="UI.closeDetailModal(event)">
+    <div class="modal-body">
+      <div class="modal-header">
+        <h3 id="detail-title">快照详情</h3>
+        <button class="btn btn-sm" onclick="UI.hideDetailModal()">关闭</button>
+      </div>
+      <div id="detail-content" class="detail-content"></div>
+    </div>
+  </div>
+
+  <!-- Form Modal -->
+  <div id="form-modal" class="modal hidden" onclick="UI.closeFormModal(event)">
+    <div class="modal-body">
+      <div class="modal-header">
+        <h3 id="form-title">新增快照</h3>
+        <button class="btn btn-sm" onclick="UI.hideForm()">关闭</button>
+      </div>
+      <div class="form-modal-content">
+        <div class="form-row">
+          <div class="form-group">
+            <label>快照日期 <span class="required">*</span></label>
+            <input type="date" id="f-date" required />
+            <div id="f-date-warning" class="expense-warning hidden"></div>
+          </div>
+          <div class="form-group">
+            <label>现金池总额 <span class="required">*</span></label>
+            <input type="number" id="f-cash" step="1" value="0" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>本期总收入</label>
+            <input type="number" id="f-income" step="1" value="0" />
+          </div>
+          <div class="form-group">
+            <label>收入说明</label>
+            <input type="text" id="f-income-note" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>应收账款</label>
+            <input type="number" id="f-receivable" step="1" value="0" />
+          </div>
+          <div class="form-group">
+            <label>应收账款说明</label>
+            <input type="text" id="f-receivable-note" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>投资净转入</label>
+            <input type="number" id="f-invest-inflow" step="1" value="0" />
+          </div>
+          <div class="form-group">
+            <label>投资净转入说明</label>
+            <input type="text" id="f-invest-inflow-note" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>持仓市值</label>
+            <input type="number" id="f-invest-value" step="1" value="0" />
+          </div>
+          <div class="form-group">
+            <label>持仓说明</label>
+            <input type="text" id="f-invest-note" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>倒推实际开销</label>
+            <div id="f-expense-preview" class="expense-preview">¥0.00</div>
+            <div id="f-expense-warning" class="expense-warning hidden">开销为负值，请检查数据是否正确</div>
+          </div>
+          <div class="form-group">
+            <label>开销说明</label>
+            <input type="text" id="f-expense-note" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button id="form-delete-btn" class="btn btn-danger" onclick="UI.handleDeleteFromForm()" style="display:none">删除</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-primary" onclick="UI.handleSave()">保存</button>
+          <button class="btn" onclick="UI.hideForm()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/schema.js"></script>
+  <script src="js/calc.js"></script>
+  <script src="js/crypto.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/io.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

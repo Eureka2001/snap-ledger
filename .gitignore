@@ -2,14 +2,17 @@
 .vscode/
 
 # data
+backup/
 *.csv
 *.json
 
 # AI Coding
+plans/
 CLAUDE.md
 CODEBUDDY.md
 DESIGN.md
 NEED.md
+DESICION.md
 task_plan.md
 progress.md
 findings.md
