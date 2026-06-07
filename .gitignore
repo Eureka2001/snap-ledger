@@ -1,0 +1,15 @@
+# IDE
+.vscode/
+
+# data
+*.csv
+*.json
+
+# AI Coding
+CLAUDE.md
+CODEBUDDY.md
+DESIGN.md
+NEED.md
+task_plan.md
+progress.md
+findings.md
